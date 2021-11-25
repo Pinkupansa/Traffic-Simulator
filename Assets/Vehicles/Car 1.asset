@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08858886c9d872e4b9156cbacc3b6b44, type: 3}
+  m_Name: Car 1
+  m_EditorClassIdentifier: 
+  data:
+    speed: 1
+    sightRadius: 30
+    reactionTime: 0.6
+    maxCarSpeed: 6
+    position: {x: 0, y: 0}
+    target: {x: 0, y: 0}
+    destination: {x: 25.624098, y: 14.642105}
+    roadPointID: 0
+    hasToChangePoint: 0
+    moving: 0
+    imprudence: 1.51
+    crashedWithCar: 0
+  sprite: {fileID: 1432106388626290555, guid: 7e8eb0df392e888429bb5849e2b0314a, type: 3}

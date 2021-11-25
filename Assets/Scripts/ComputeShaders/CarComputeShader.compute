@@ -1,0 +1,153 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+struct VehicleData {
+    float speed;
+    float sightRadius;
+    float reactionTime;
+    float maxCarSpeed;
+    float2 position;
+    float2 target;
+    float2 destination;
+    int roadPointID;
+    int hasToChangePoint;
+    int moving;
+    float imprudence;
+    int crashedWithCar;
+};
+
+RWStructuredBuffer<VehicleData> cars;
+RWStructuredBuffer<float2> histories;
+RWStructuredBuffer<int> historiesQueueStart;
+RWStructuredBuffer<int> historiesQueueEnd;
+
+int numCars;
+
+float deltaTime;
+float time;
+float maxSpeed;
+float securityDistance;
+float recordDelta;
+int historySize;
+int mod(int x, int m)
+{
+    
+    return (x % m + m) % m;
+}
+
+bool ComputeRayCircleIntersection(float2 rayStart, float2 rayEnd, float2 circleCenter, float2 circleRadius, out float2 intersection)
+{
+    float2 d = rayEnd - rayStart;
+    float2 f = rayStart - circleCenter;
+
+    float a = dot(d, d);
+    float b = 2 * dot(f, d);
+    float c = dot(f, f) - circleRadius * circleRadius; 
+    
+    float delta = b * b - 4 * a * c;
+
+    if (delta < 0)
+    {
+        return false;
+    }
+    else
+    {
+        float t1 = (-b - sqrt(delta)) / (2 * a);
+        float t2 = (-b + sqrt(delta)) / (2 * a);
+
+        if (t1 >= 0)
+        {
+            intersection = rayStart + t1 * (rayEnd - rayStart);
+            return true;
+        }
+        else
+        {
+            //inside the circle
+            intersection = rayStart;
+            return true;
+        }
+    }
+
+}
+
+float2 GetPositionDelayed(int car, float tau)
+{
+    int end = historiesQueueEnd[car];
+    int indexInSubArray = mod(floor(end - tau / recordDelta),historySize);
+
+
+    return histories[car*historySize + indexInSubArray];
+}
+
+float F(float x, float imprudence)
+{
+    if (imprudence *x < 0)
+    {
+        return 0;
+    }
+    else if (imprudence *x < maxSpeed)
+    {
+        return imprudence*x;
+    }
+    else
+    {
+        return maxSpeed;
+    }
+}
+[numthreads(10,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+
+    VehicleData car = cars[id.x];
+    if (car.moving == 1)
+    {
+        float2 posDelayed = GetPositionDelayed(id.x, car.reactionTime); 
+        float2 dir = (car.target - car.position);
+        
+            
+            //car.speed = maxSpeed;
+            if (length(dir) > 0)
+            {
+                for (int i = 0; i < numCars; i++)
+                {
+                    if (i != id.x)
+                    {
+                        float2 otherCar = GetPositionDelayed(i, car.reactionTime);
+                        float2 dirToOtherCar = otherCar - posDelayed;
+
+                        if (length(otherCar - posDelayed) < car.sightRadius && dot(dir, dirToOtherCar) > 0)
+                        {
+
+                            float2 intersection;
+                            if (ComputeRayCircleIntersection(posDelayed, posDelayed + dir * car.sightRadius, otherCar, securityDistance, intersection))
+                            {
+                                float2 dist = length(intersection - posDelayed);
+                                car.speed = min(F(dist, car.imprudence), car.speed);
+                            }
+                        }
+                        if (length(cars[i].position - car.position) < 0.8f)
+                        {
+                            car.crashedWithCar = i;
+                        }
+                    }
+                }
+            }
+        
+
+
+        car.position = car.position + car.speed * deltaTime * dir / length(dir + 0.001);
+
+        if (length(car.position - car.target) < 0.05f * car.speed)
+        {
+            car.hasToChangePoint = 1;
+        }
+        if (length(car.position - car.destination) < 0.05f * car.speed)
+        {
+            car.moving = 0;
+        }
+        cars[id.x] = car;
+    }
+    
+}
+
+
